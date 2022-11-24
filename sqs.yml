@@ -1,16 +1,9 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Creates an SQS Queue.
+Description: Create a VPC with a SG which references itself
 Resources:
-  MyQueue:
-    Type: AWS::SQS::Queue
+  sgtester:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      QueueName:
-        Fn::Join:
-        - ''
-        - - SampleQueue-
-          - Ref: AWS::StackName
-Outputs:
-  MyQueueARN:
-    Value:
-      Ref: MyQueue
+      GroupDescription: vpc tester sg
+      VpcId: vpc-0e3384da61ec95b4f
