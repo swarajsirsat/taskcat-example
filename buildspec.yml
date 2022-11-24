@@ -31,8 +31,8 @@ phases:
   build:
     commands:
       - echo Build phase started on `date`
-      - taskcat test run --no_cleanup
-      # - taskcat test run --no-delete 
+      # - taskcat test run --no_cleanup
+      - taskcat test run --no-delete 
       # - taskcat test run -k
       # - taskcat test run
   post_build:
