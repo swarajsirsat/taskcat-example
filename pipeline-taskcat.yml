@@ -259,24 +259,6 @@ Resources:
             ProjectName:
               Ref: CodeBuildDashboard
           RunOrder: 20
-      - Name: Cleanup
-        Actions:
-        - InputArtifacts:
-          - Name: SourceArtifacts
-          Name: RemoveS3Buckets
-          ActionTypeId:
-            Category: Test
-            Owner: AWS
-            Version: '1'
-            Provider: CodeBuild
-          OutputArtifacts: []
-          Configuration:
-            ProjectName:
-              Ref: CodeBuildCleanup
-          RunOrder: 1
-      ArtifactStore:
-        Type: S3
-        Location: !Ref PipelineBucket
 Outputs:
   PipelineUrl:
     Value: !Sub https://console.aws.amazon.com/codepipeline/home?region=${AWS::Region}#/view/${Pipeline}
