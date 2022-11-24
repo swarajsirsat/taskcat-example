@@ -1,19 +1,16 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create a VPC with a SG which references itself
+Description: Creates an SQS Queue.
 Resources:
-  InstanceSecurityGroup:
-  Type: AWS::EC2::SecurityGroup
-  Properties:
-    GroupDescription: Allow http to client host
-    VpcId: Ref: myVPC
-    SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
-    SecurityGroupEgress:
-      - IpProtocol: tcp
-        FromPort: 80
-        ToPort: 80
-        CidrIp: 0.0.0.0/0
+  MyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Fn::Join:
+        - ''
+        - - SampleQueue-
+          - Ref: AWS::StackName
+Outputs:
+  MyQueueARN:
+    Value:
+      Ref: MyQueue
