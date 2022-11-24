@@ -1,16 +1,288 @@
----
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Creates an SQS Queue.
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation Template For Setting up the UI Services on AWS ECS
+Parameters:
+  EnvironUsed:
+    Default: qa
+    Type: String
+    AllowedValues:
+      - qa
+      - stage
+      - prod
+  Project:
+    Default: ark
+    Description: Project team name.
+    Type: String
+  ApplicationNameMasterData:
+    Default: masterdata
+    Description: Application Name
+    Type: String
+  PortMappingsMasterData:
+    Default: 3000
+    Type: Number
+  ScalingTargetRequired:
+    Description: ScalingTargetRequired
+    Default: 'No'
+    Type: String
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+  ALBCanonicalHostedZoneID:
+    Default: Z35SXDOTRQ7X7K
+    Description: ALB Canonical HostedZone ID.
+    Type: String
+  InternalHostedZoneId:
+    Default: Z06310622G8LU2R6ZYU3A
+    Description: Internal HostedZone ID.
+    Type: String
+  ServiceName:
+    Description: Service Team Name
+    Default: api
+    Type: String
+  RouteMasterData:
+    Description: Service Team Name
+    Default: /
+    Type: String
+  ECRRepoMasterData:
+    Default: masterdata
+    Description: ECR Name
+    Type: String
+  MyCluster:
+    Default: ark-cluster-qa
+    Type: String
+  LogGroupNameMasterData:
+    Default: ark-qa-masterdata
+    Type: String
+  ContainerNameMasterData:
+    Default: ark-masterdata-container-qa
+    Type: String
+Mappings:
+  Environment:
+    qa:
+      NestedTemplateURL: >-
+        https://s3.us-east-1.amazonaws.com/abrightlab-devops/aws/ecs-setup/api/nested-ecs-api-service-dev.template
+      ECSClusterName: ark-cluster-qa
+      InternalALBEndpoint: internal-ALB-int-ark-qa-1243353318.us-east-1.elb.amazonaws.com
+      InternalALBArn: >-
+        arn:aws:elasticloadbalancing:us-east-1:724963971857:loadbalancer/app/ALB-int-ark-qa/881b4fdd2aea686b
+      InternalALBFullName: app/ALB-int-ark-qa/881b4fdd2aea686b
+      InternalALBListenerArn: >-
+        arn:aws:elasticloadbalancing:us-east-1:724963971857:listener/app/ALB-int-ark-qa/881b4fdd2aea686b/49d3a0b3bf45fc64
+      DomainNameMasterData: masterdata-api-qa.abrightlab.internal.com
+      UnhealthyHostSNS: 'arn:aws:sns:us-east-1:724963971857:Devops_SNS_UnhealthyHost'
+      5XXCodeSNS: 'arn:aws:sns:us-east-1:724963971857:Devops_SNS_5xx_code'
+      VpcId: vpc-052461f2fa0c317d0
+  Environment2:
+    qa:
+      EnvironUsed: qa
+    staging:
+      EnvironUsed: staging
+    prod:
+      EnvironUsed: prod
 Resources:
-  MyQueue:
-    Type: AWS::SQS::Queue
+  ECSTaskDefinitionMasterData:
+    Type: 'AWS::ECS::TaskDefinition'
     Properties:
-      QueueName:
-        Fn::Join:
-        - ''
-        - - SampleQueue-
-          - Ref: AWS::StackName
-Outputs:
-  MyQueueARN:
-    Value:
-      Ref: MyQueue
+      Cpu: 512
+      Memory: 1024
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      TaskRoleArn: !Join 
+        - '-'
+        - - !Ref 'AWS::AccountId'
+          - ExecutionRole
+      ExecutionRoleArn: !Join 
+        - '-'
+        - - !Ref 'AWS::AccountId'
+          - ExecutionRole
+      Family: !Join 
+        - '-'
+        - - !Ref Project
+          - !Ref ApplicationNameMasterData
+          - app
+          - td
+          - !Ref EnvironUsed
+      ContainerDefinitions:
+        - Name: !Ref ContainerNameMasterData
+          Cpu: '150'
+          Essential: 'true'
+          Image: !Join 
+            - ''
+            - - !Ref 'AWS::AccountId'
+              - .dkr.ecr.
+              - !Ref 'AWS::Region'
+              - .amazonaws.com/
+              - !Ref ECRRepoMasterData
+              - ':'
+              - latest
+          Memory: '600'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroupNameMasterData
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-create-group: 'true'
+              awslogs-stream-prefix: !Join 
+                - '-'
+                - - ecs-catalog-app-stream
+                  - !Ref EnvironUsed
+          PortMappings:
+            - ContainerPort: !Ref PortMappingsMasterData
+          Environment:
+            - Name: Environment2
+              Value: !FindInMap 
+                - Environment2
+                - !Ref EnvironUsed
+                - EnvironUsed
+            - Name: ProjectName
+              Value: !Ref Project
+            - Name: ServiceName
+              Value: !Ref ApplicationNameMasterData
+            - Name: Port
+              Value: !Ref PortMappingsMasterData
+  ECSServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: !Join 
+            - '-'
+            - - servicerole-policy
+              - !Ref EnvironUsed
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+  AutoscalingRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - application-autoscaling.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: !Join 
+            - '-'
+            - - service-autoscaling
+              - !Ref EnvironUsed
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'application-autoscaling:*'
+                  - 'cloudwatch:DescribeAlarms'
+                  - 'cloudwatch:PutMetricAlarm'
+                  - 'ecs:DescribeServices'
+                  - 'ecs:UpdateService'
+                Resource: '*'
+  TargetGroupMasterData:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 121
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 120
+      HealthyThresholdCount: 2
+      TargetType: ip
+      Name: !Join 
+        - '-'
+        - - TG
+          - !Ref ApplicationNameMasterData
+          - !Ref EnvironUsed
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !FindInMap 
+        - Environment
+        - !Ref EnvironUsed
+        - VpcId
+  ECSALBListenerRuleMasterData:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    DependsOn:
+      - TargetGroupMasterData
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupMasterData
+      Conditions:
+        - Field: host-header
+          Values:
+            - !FindInMap 
+              - Environment
+              - !Ref EnvironUsed
+              - DomainNameMasterData
+      ListenerArn: !FindInMap 
+        - Environment
+        - !Ref EnvironUsed
+        - InternalALBListenerArn
+      Priority: 299
+  MasterData:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: !FindInMap 
+        - Environment
+        - !Ref EnvironUsed
+        - NestedTemplateURL
+      Parameters:
+        EnvironUsed: !FindInMap 
+          - Environment2
+          - !Ref EnvironUsed
+          - EnvironUsed
+        ScalingTargetRequired: !Ref ScalingTargetRequired
+        ApplicationName: !Ref ApplicationNameMasterData
+        ServiceDomainName: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - DomainNameMasterData
+        HostedZoneId: !Ref InternalHostedZoneId
+        TargetGroupArn: !Ref TargetGroupMasterData
+        ContainerPort: !Ref PortMappingsMasterData
+        ContainerName: !Ref ContainerNameMasterData
+        ECSTaskDefinitionArn: !Ref ECSTaskDefinitionMasterData
+        ECSServiceRoleArn: !GetAtt 
+          - ECSServiceRole
+          - Arn
+        AutoscalingRoleArn: !GetAtt 
+          - AutoscalingRole
+          - Arn
+        ServiceName: !Ref ServiceName
+        Project: !Ref Project
+        ECSClusterName: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - ECSClusterName
+        ALBEndpoint: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - InternalALBEndpoint
+        ALBCanonicalHostedZoneID: !Ref ALBCanonicalHostedZoneID
+        ALBFullName: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - InternalALBFullName
+        TargetGroupFullName: !GetAtt 
+          - TargetGroupMasterData
+          - TargetGroupFullName
+        5XXCodeSNS: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - 5XXCodeSNS
+        UnhealthyHostSNS: !FindInMap 
+          - Environment
+          - !Ref EnvironUsed
+          - UnhealthyHostSNS
+        Route: !Ref RouteMasterData
