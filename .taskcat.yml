@@ -1,7 +1,7 @@
 project:
-  name: taskcat-example
+  name: service-qa
   regions:
           - us-east-1
 tests:
   sqs-test:
-    template: ./sqs.yml
+    template: ./service.yml
