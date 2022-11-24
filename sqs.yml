@@ -2,8 +2,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Create a VPC with a SG which references itself
 Resources:
-  sgtester:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: vpc tester sg
-      VpcId: vpc-0e3384da61ec95b4f
+  InstanceSecurityGroup:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+    GroupDescription: Allow http to client host
+    VpcId: Ref: myVPC
+    SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+    SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
